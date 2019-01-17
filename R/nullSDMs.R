@@ -19,9 +19,6 @@ nullSDMs <- function(occs, envs, bg, occs.folds, bg.folds, envs.folds, mod.fun, 
   # get total number of folds (k)
   nk <- length(unique(occs.folds))
 
-  # initialize list to hold stats for each null model
-  null.iters <- list()
-
   # get environmental values for occs and bg
   occs.vals <- as.data.frame(raster::extract(envs, occs))
   bg.vals <- as.data.frame(raster::extract(envs, bg))
@@ -29,13 +26,23 @@ nullSDMs <- function(occs, envs, bg, occs.folds, bg.folds, envs.folds, mod.fun, 
   # get model function name
   mod.fun.name <- as.character(substitute(mod.fun))[3]
 
+  # initialize data frames to collect evaluation stats for each fold
+  # per iteration and their averages
+  fields.avg <- c("iter", "full.auc.train", "avg.auc.train", "std.auc.train",
+                  "avg.auc.test", "std.auc.test", "avg.auc.diff", "std.auc.diff",
+              "avg.or.min", "std.or.min", "avg.or.10", "std.or.10")
+  null.stats.avg <- data.frame(matrix(nrow = no.iter, ncol = length(fields.avg)))
+  names(null.stats.avg) = fields.avg
+  null.stats.i <- list()
+
 
 
   # iteratively build null models
   for(i in 1:no.iter) {
-    # set up empty vectors for stats
-    stats.i <- data.frame(auc.test = numeric(nk), auc.diff = numeric(nk),
-                          or.min = numeric(nk), or.10 = numeric(nk))
+    # initialize data frame for fold statistics for current iteration
+    fields.i <- c("auc.train", "auc.test", "auc.diff", "or.min", "or.10")
+    null.stats.i[[i]] <- data.frame(matrix(nrow = nk, ncol = length(fields.i)))
+    names(null.stats.i[[i]]) <- fields.i
 
     # sample random occurrences
     occs.null <- list()
@@ -53,8 +60,9 @@ nullSDMs <- function(occs, envs, bg, occs.folds, bg.folds, envs.folds, mod.fun, 
     auc.train.i <- dismo::evaluate(occs.null.all, bg.vals, mod.i)@auc
 
     for(k in 1:nk) {
-
-      occs.null.train <- occs.null[[k]]
+      # get training and testing data for current iteration
+      # (non-k training and k testing folds)
+      occs.null.train <- do.call(rbind, occs.null[-k])
       bg.train <- bg.vals[bg.folds != k, ]
       occs.test <- occs.vals[occs.folds == k, ]
 
@@ -70,13 +78,43 @@ nullSDMs <- function(occs, envs, bg, occs.folds, bg.folds, envs.folds, mod.fun, 
       mod.args.k <- buildModArgs(mod.fun.name, mod.args, occs.null.train, bg.train)
       # build the model
       mod.k <- do.call(mod.fun, mod.args.k)
-      # evaluate on withheld data (occs.test)
-      auc.test.k <- dismo::evaluate(occs.test, bg.train, mod.k)@auc
 
+      # calculate auc on training and testing data
+      auc.train.k <- dismo::evaluate(occs.null.train, bg.train, mod.k)@auc
+      auc.test.k <- dismo::evaluate(occs.test, bg.train, mod.k)@auc
+      # calculate auc diff
+      auc.diff.k <- auc.train.k - auc.test.k
+      if(abs.auc.diff == TRUE) auc.diff.k <- abs(auc.diff.k)
+      # get model predictions for training and testing data
+      pred.train.k <- predict(mod.k, occs.null.train)
+      pred.test.k <- predict(mod.k, occs.test)
+      # get 10 percentile predicted value
+      occs.null.train.n <- nrow(occs.null.train)
+      if(occs.null.train.n < 10) {
+        pct10.train.k <- ceiling(occs.null.train.n * 0.1)
+      } else {
+        pct10.train.k <- floor(occs.null.train.n * 0.1)
+      }
+      pct10.train.k.thr <- sort(pred.train.k)[pct10.train.k]
+      or10.test.k <- mean(pred.test.k < pct10.train.k.thr)
+      min.train.k.thr <- min(pred.train.k)
+      orMin.test.k <- mean(pred.test.k < min.train.k.thr)
+
+      null.stats.i[[i]][k,] <- c(auc.train.k, auc.test.k, auc.diff.k,
+                                 orMin.test.k, or10.test.k)
+
+      message(sprintf("Completed model and evaluation for fold %i of iteration %i.", k, i))
     }
+    # average fold statistics
+    means <- apply(null.stats.i[[i]], 2, mean)
+    stds <- apply(null.stats.i[[i]], 2, sd)
+    # alternate the above values for data frame
+    stats <- c(rbind(means, stds))
+    null.stats.avg[i,] <- c(i, auc.train.i, stats)
   }
 
-  return()
+  out <- list(null.stats.avg = null.stats.avg, null.stats.i = null.stats.i)
+  return(out)
 
 }
 
