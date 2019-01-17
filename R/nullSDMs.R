@@ -1,11 +1,24 @@
 #' @export
 #'
 
-mod.args <- list(fc = "LQ", rm = 1)
-# x <- nullSDMs(occs, envs, bg, occs.folds, bg.folds, envs.folds, dismo::maxent, mod.args, 10)
-# x <- nullSDMs(occs, envs, bg, occs.folds, bg.folds, envs.folds, maxnet::maxnet, list(fc = "LQ", rm = 1), 10)
+# bv <- spocc::occ('Bradypus variegatus', 'gbif', limit=300, has_coords=TRUE)
+# occs <- as.data.frame(bv$gbif$data$Bradypus_variegatus[,2:3])
+# occs <- occs[!duplicated(occs),]
+# envs <- raster::stack(list.files(path=paste(system.file(package='dismo'), '/ex', sep=''), pattern='grd', full.names=TRUE))
+envs <- raster::mask(envs, envs$biome)
+# which(rowSums(is.na(raster::extract(envs, occs))) > 0)
+# bg <- dismo::randomPoints(envs[[1]], 10000)
+# mod.args <- list(fc = "LQ", rm = 1)
+# folds <- ENMeval::get.block(occs, bg)
+# occs.folds <- folds$occ.grp
+# bg.folds <- folds$bg.grp
+# envs.xy <- raster::rasterToPoints(envs[[1]], spatial = TRUE)
+# envs.folds <- ENMeval::get.block(occs, envs.xy@coords)$bg.grp
+# x1 <- nullSDMs(occs, envs, bg, occs.folds, bg.folds, envs.folds, dismo::maxent, mod.args, 10, "biome")
+# x2 <- nullSDMs(occs, envs, bg, occs.folds, bg.folds, envs.folds, maxnet::maxnet, mod.args, 10, "biome")
 
-nullSDMs <- function(occs, envs, bg, occs.folds, bg.folds, envs.folds, mod.fun, mod.args, no.iter, categoricals) {
+nullSDMs <- function(occs, envs, bg, occs.folds, bg.folds, envs.folds,
+                     mod.fun, mod.args, no.iter, categoricals=NULL, abs.auc.diff = FALSE) {
 
   # define new raster (envs.cv) with values equal to folds based on envs.folds
   envs.xy <- rasterToPoints(envs[[1]], spatial = TRUE)
@@ -68,9 +81,9 @@ nullSDMs <- function(occs, envs, bg, occs.folds, bg.folds, envs.folds, mod.fun, 
 
       # convert fields for categorical data to factor class
       if(!is.null(categoricals)) {
-        for (i in 1:length(categoricals)) {
-          occs.null.train[, categoricals[i]] <- as.factor(occs.null.train[, categoricals[i]])
-          bg.train[, categoricals[i]] <- as.factor(bg.train[, categoricals[i]])
+        for(j in 1:length(categoricals)) {
+          occs.null.train[, categoricals[j]] <- as.factor(occs.null.train[, categoricals[j]])
+          bg.train[, categoricals[j]] <- as.factor(bg.train[, categoricals[j]])
         }
       }
 
