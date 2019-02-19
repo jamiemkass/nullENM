@@ -13,9 +13,9 @@ evalStats <- function(occs.train, bg.train, occs.test, mod, abs.auc.diff) {
   # get 10 percentile predicted value
   occs.train.n <- nrow(occs.train)
   if(occs.train.n < 10) {
-    pct10.train <- ceiling(occs.train.n * 0.1)
-  } else {
     pct10.train <- floor(occs.train.n * 0.1)
+  } else {
+    pct10.train <- ceiling(occs.train.n * 0.1)
   }
   pct10.train.thr <- sort(pred.train)[pct10.train]
   or10.test <- mean(pred.test < pct10.train.thr)

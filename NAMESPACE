@@ -2,4 +2,5 @@
 
 export(buildModArgs)
 export(evalStats)
+export(model.args)
 export(nullSDMs)
