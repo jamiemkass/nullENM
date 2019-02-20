@@ -9,7 +9,7 @@ no.params <- function(mod, mod.name) {
   }
 }
 
-# define a corrected variance function
-corrected.var <- function(x, nk){
-  sum((x - mean(x))^2) * ((nk-1)/nk)
-}
+# # define a corrected variance function
+# corrected.var <- function(x, nk){
+#   sum((x - mean(x))^2) * ((nk-1)/nk)
+# }
