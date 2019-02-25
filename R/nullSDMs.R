@@ -1,29 +1,17 @@
 #' @export
 #'
 
-# bv <- spocc::occ('Bradypus variegatus', 'gbif', limit=300, has_coords=TRUE)
-# occs <- as.data.frame(bv$gbif$data$Bradypus_variegatus[,2:3])
-# occs <- occs[!duplicated(occs),]
-# envs <- raster::stack(list.files(path=paste(system.file(package='dismo'), '/ex', sep=''), pattern='grd', full.names=TRUE))
-# envs <- raster::mask(envs, envs$biome)
-# which(rowSums(is.na(raster::extract(envs, occs))) > 0)
-# bg <- dismo::randomPoints(envs[[1]], 10000)
-# mod.args <- list(fc = "LQ", rm = 1)
-# partitions.block <- ENMeval::get.block(occs, bg)
-# envs.xy <- raster::rasterToPoints(envs[[1]], spatial = TRUE)
-# partitions.block$envs.grp <- ENMeval::get.block(occs, envs.xy@coords)$bg.grp
-# partitions.rand <- ENMeval::get.randomkfold(occs, bg, 3)
-# partitions.split <- ENMeval::get.randomkfold(occs, bg, 2)
-# x1 <- nullSDMs(occs, envs, bg, partitions, dismo::maxent, mod.args, 10, "biome")
-# x2 <- nullSDMs(occs, envs, bg, partitions.rand, maxnet::maxnet, mod.args, 5, "kfold", "biome")
-# x3 <- nullSDMs(occs, envs, bg, partitions.block, maxnet::maxnet, mod.args, 5, "kspatial", "biome")
-# x4 <- nullSDMs(occs, envs, bg, partitions.split, maxnet::maxnet, mod.args, 5, "split", "biome")
-
-
 # for split evaluation, label training occs "1" and independent evaluation occs "2" in partitions
-nullSDMs <- function(occs, envs, bg, partitions,
-                     mod.fun, mod.args, no.iter, evalType = c("split", "kfold", "kspatial"),
-                     categoricals = NULL, abs.auc.diff = FALSE) {
+nullSDMs <- function(occs, envs, bg, partitions, mod.name, mod.args, no.iter,
+                     evalType = c("split", "kfold", "kspatial"),
+                     categoricals = NULL, abs.auc.diff = FALSE, removeMxTemp = TRUE) {
+
+  # record start time
+  start.time <- proc.time()
+  message("Beginning null SDM analysis...")
+
+  # changing stack to brick to speed up analysis
+  envs <- raster::brick(envs)
 
   # if split evaluation, partition number equals 1
   if(evalType == "split") {
@@ -56,8 +44,19 @@ nullSDMs <- function(occs, envs, bg, partitions,
     }
   }
 
-  # get model function name
-  mod.fun.name <- as.character(substitute(mod.fun))[3]
+  # get model function name (only Maxent functions available now)
+  if(mod.name == "maxent.jar") {
+    mod.fun <- dismo::maxent
+    # create temp directory to store maxent.jar output, for potential removal later
+    tmpdir <- paste(tempdir(), runif(1,0,1), sep = "/")
+    dir.create(tmpdir, showWarnings = TRUE, recursive = FALSE)
+  }else if(mod.name == "maxnet") {
+    mod.fun <- maxnet:maxnet
+
+  }else{
+    message('Only Maxent functions available now. Please choose either "maxent.jar" or "maxnet".')
+    return()
+  }
 
   # initialize data frames to collect evaluation stats for each partition
   # per iteration and their averages
@@ -78,11 +77,11 @@ nullSDMs <- function(occs, envs, bg, partitions,
   # build real model ####
   ############################## #
 
-  mod.args.real <- buildModArgs(mod.fun.name, mod.args, occs.vals, bg.vals)
+  mod.args.real <- buildModArgs(mod.name, mod.args, occs.vals, bg.vals)
   mod.real <- do.call(mod.fun, mod.args.real)
   # calculate training auc
   all.stats["real.mean", "auc.train"] <- dismo::evaluate(occs.vals, bg.vals, mod.real)@auc
-  # real.stats$nparam <- no.params(mod.real, mod.fun.name)
+  # real.stats$nparam <- no.params(mod.real, mod.name)
   kstats <- data.frame(matrix(nrow = nk, ncol = length(k.cnames),
                               dimnames = list(NULL, k.cnames)))
 
@@ -96,7 +95,7 @@ nullSDMs <- function(occs, envs, bg, partitions,
       occs.test.real.k <- occs.vals[partitions$occ.grp != 1,]
       bg.train.k <- bg.vals
     }
-    mod.args.real.k <- buildModArgs(mod.fun.name, mod.args, occs.train.real.k, bg.train.k)
+    mod.args.real.k <- buildModArgs(mod.name, mod.args, occs.train.real.k, bg.train.k)
     mod.real.k <- do.call(mod.fun, mod.args.real.k)
     kstats[k,] <- evalStats(occs.train.real.k, bg.train.k, occs.test.real.k,
                                mod.real.k, abs.auc.diff)
@@ -154,10 +153,10 @@ nullSDMs <- function(occs, envs, bg, partitions,
 
     occs.null.all <- do.call(rbind, occs.null)
 
-    mod.args.i <- buildModArgs(mod.fun.name, mod.args, occs.null.all, bg.vals)
+    mod.args.i <- buildModArgs(mod.name, mod.args, occs.null.all, bg.vals)
     mod.i <- do.call(mod.fun, mod.args.i)
     null.stats[i,]$auc.train <- dismo::evaluate(occs.null.all, bg.vals, mod.i)@auc
-    null.stats[i,]$nparam <- no.params(mod.i, mod.fun.name)
+    null.stats[i,]$nparam <- no.params(mod.i, mod.name)
 
     # get training and testing data for current iteration
     for(k in 1:nk) {
@@ -175,7 +174,7 @@ nullSDMs <- function(occs, envs, bg, partitions,
       }
 
       # build custom mod.args for this iteration
-      mod.args.k <- buildModArgs(mod.fun.name, mod.args, occs.null.train, bg.train)
+      mod.args.k <- buildModArgs(mod.name, mod.args, occs.null.train, bg.train)
       # build the model
       mod.k <- do.call(mod.fun, mod.args.k)
 
@@ -200,7 +199,14 @@ nullSDMs <- function(occs, envs, bg, partitions,
   all.stats["pvalue", 3:5] <- sapply(all.stats["zscore", 3:5], pnorm)
 
   out <- list(all.stats = all.stats, null.stats = null.stats, null.stats.iters = null.stats.iters)
+
+  # optionally remove temp directory for maxent.jar
+  if(mod.name == "maxent.jar" & removeMxTemp == TRUE) unlink(tmpdir, recursive = T, force = T)
+
+  timed <- proc.time() - start.time
+  t.min <- floor(timed[3] / 60)
+  t.sec <- timed[3] - (t.min * 60)
+  message(paste("Null SDM analysis completed in", t.min, "minutes", round(t.sec, 1), "seconds."))
+
   return(out)
 }
-
-#dismo::maxent(x, p, args = c(args.i, userArgs),factors = categoricals)

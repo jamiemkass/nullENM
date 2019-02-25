@@ -1,6 +1,4 @@
 #' @export
-
-#' @export
 model.args <- function(tune.tbl.i, mod.name, occs.vals, bg.vals, other.args) {
 
   out <- list()
@@ -9,7 +7,7 @@ model.args <- function(tune.tbl.i, mod.name, occs.vals, bg.vals, other.args) {
   # define response
   p <- c(rep(1, nrow(occs.vals)), rep(0, nrow(bg.vals)))
   # maxent.jar
-  if(mod.name == "maxent") {
+  if(mod.name == "maxent.jar") {
     out$x <- d
     out$p <- p
     out$args <- c("noaddsamplestobackground", "noremoveDuplicates", "noautofeature")

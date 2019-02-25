@@ -1,0 +1,17 @@
+# bv <- spocc::occ('Bradypus variegatus', 'gbif', limit=300, has_coords=TRUE)
+# occs <- as.data.frame(bv$gbif$data$Bradypus_variegatus[,2:3])
+# occs <- occs[!duplicated(occs),]
+# envs <- raster::stack(list.files(path=paste(system.file(package='dismo'), '/ex', sep=''), pattern='grd', full.names=TRUE))
+# envs <- raster::mask(envs, envs$biome)
+# which(rowSums(is.na(raster::extract(envs, occs))) > 0)
+# bg <- dismo::randomPoints(envs[[1]], 10000)
+# mod.args <- list(fc = "LQ", rm = 1)
+# partitions.block <- ENMeval::get.block(occs, bg)
+# envs.xy <- raster::rasterToPoints(envs[[1]], spatial = TRUE)
+# partitions.block$envs.grp <- ENMeval::get.block(occs, envs.xy@coords)$bg.grp
+# partitions.rand <- ENMeval::get.randomkfold(occs, bg, 3)
+# partitions.split <- ENMeval::get.randomkfold(occs, bg, 2)
+# x1a <- nullSDMs(occs, envs, bg, partitions.rand, "maxnet", mod.args, 10, "kfold", "biome")
+# x1b <- nullSDMs(occs, envs2, bg, partitions.rand, "maxnet", mod.args, 10, "kfold", "biome")
+# x2 <- nullSDMs(occs, envs, bg, partitions.block, "maxnet", mod.args, 5, "kspatial", "biome")
+# x3 <- nullSDMs(occs, envs, bg, partitions.split, "maxnet", mod.args, 5, "split", "biome")
