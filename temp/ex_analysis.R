@@ -11,6 +11,6 @@
 # p.block$envs.grp <- ENMeval::get.block(occs, envs.xy@coords)$bg.grp
 # p.rand <- ENMeval::get.randomkfold(occs, bg, 3)
 # p.split <- ENMeval::get.randomkfold(occs, bg, 2)
-# x1 <- nullSDMs(occs, envs, bg, p.rand$occ.grp, p.rand$bg.grp, "maxnet", mod.args, 10, "kfold", "biome")
-# x2 <- nullSDMs(occs, envs, bg, p.block$occ.grp, p.block$bg.grp, "maxnet", mod.args, 5, "kspatial", "biome")
+# x1 <- nullSDMs(occs, envs, bg, p.rand$occ.grp, p.rand$bg.grp, "maxnet", mod.args, 5, "kfold", "biome")
+# x2 <- nullSDMs(occs, envs, bg, p.block$occ.grp, p.block$bg.grp, envs.grp = p.block$envs.grp, "maxnet", mod.args, 5, "kspatial", "biome")
 # x3 <- nullSDMs(occs, envs, bg, p.split$occ.grp, p.split$bg.grp, "maxnet", mod.args, 5, "split", "biome")

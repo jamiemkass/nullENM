@@ -2,13 +2,13 @@
 #'
 
 # for split evaluation, label training occs "1" and independent evaluation occs "2" in partitions
-nullSDMs <- function(occs, envs, bg, occs.grp, bg.grp, mod.name, mod.args, no.iter,
-                     eval.type = c("split", "kfold", "kspatial"),
-                     categoricals = NULL, abs.auc.diff = FALSE, other.args = NULL,
-                     removeMxTemp = TRUE) {
+nullSDMs <- function(occs, envs, bg, occs.grp, bg.grp, mod.name, mod.args,
+                     no.iter, eval.type = c("split", "kfold", "kspatial"),
+                     categoricals = NULL, envs.grp = NULL, abs.auc.diff = FALSE,
+                     other.args = NULL, removeMxTemp = TRUE) {
 
   # record start time
-  start.time <- proc.time()
+  t1 <- proc.time()
   message("Beginning null SDM analysis...")
 
   # changing stack to brick to speed up analysis
@@ -24,21 +24,22 @@ nullSDMs <- function(occs, envs, bg, occs.grp, bg.grp, mod.name, mod.args, no.it
     # get total number of partitions (k)
     nk <- length(unique(occs.grp))
   }
-  # if spatial k-fold evaluation, spatially partition envs
-  if(eval.type == "kspatial") {
-    # define new raster (envs.cv) with values equal to partitions based on envs.grp
-    envs.xy <- raster::rasterToPoints(envs[[1]], spatial = TRUE)
-    envs.cellNo <- raster::extract(envs[[1]], envs.xy, cellnumbers = TRUE)
-    envs.cv <- envs[[1]]
-    envs.cv[envs.cellNo[,1]] <- envs.grp
-  }
 
   # get number of occurrence points by partition
   occs.parts.tbl <- table(occs.grp)
 
   # get environmental values for occs and bg
-  occs.vals <- as.data.frame(raster::extract(envs, occs))
-  bg.vals <- as.data.frame(raster::extract(envs, bg))
+  t2 <- proc.time()
+  message("Extracting environmental values...")
+  colnames(bg) <- colnames(occs)
+  pt.vals <- as.data.frame(raster::extract(envs, rbind(occs, bg)))
+  occs.vals <- pt.vals[seq(1, nrow(occs)), ]
+  bg.vals <- pt.vals[seq(nrow(occs)+1, nrow(pt.vals)), ]
+  envs.vals <-as.data.frame(raster::getValues(envs))
+  message(paste0("Environmental values extracted in ", timeCheck(t2), "."))
+
+  # now remove NAs from envs.vals
+  envs.vals <- na.omit(envs.vals)
 
   # convert fields for categorical data to factor class
   if(!is.null(categoricals)) {
@@ -80,6 +81,8 @@ nullSDMs <- function(occs, envs, bg, occs.grp, bg.grp, mod.name, mod.args, no.it
   # build real model ####
   ############################## #
 
+  t3 <- proc.time()
+  message("Building and evaluating real model...")
   mod.args.real <- model.args(mod.name, mod.args, occs.vals, bg.vals, other.args)
   mod.real <- do.call(mod.fun, mod.args.real)
   # calculate training auc
@@ -102,8 +105,10 @@ nullSDMs <- function(occs, envs, bg, occs.grp, bg.grp, mod.name, mod.args, no.it
     mod.real.k <- do.call(mod.fun, mod.args.real.k)
     kstats[k,] <- evalStats(occs.train.real.k, bg.train.k, occs.test.real.k,
                             mod.real.k, abs.auc.diff)
-    message(sprintf("Completed real model and evaluation for partition %i.", k))
+    message(sprintf("Completed real model partition %i.", k))
   }
+  message(paste0("Real model built and evaluated in ", timeCheck(t3), "."))
+
   # fill in rest of real model statistics
   all.stats[1, 2:5] <- apply(kstats, 2, mean)
   all.stats[2, 2:5] <- apply(kstats, 2, sd)
@@ -115,34 +120,29 @@ nullSDMs <- function(occs, envs, bg, occs.grp, bg.grp, mod.name, mod.args, no.it
   # initialize list to record stats for null iteration i
   null.stats.iters <- list()
 
+  t4 <- proc.time()
+  message(sprintf("Building and evaluating %i null SDMs...", no.iter))
+
   for(i in 1:no.iter) {
     # initialize data frame for partition statistics for current iteration
-    null.stats.iters[[i]] <- data.frame(matrix(nrow = nk, ncol = length(k.cnames) + 1,
-                                               dimnames = list(NULL, c("iter", k.cnames))))
-
-    # sample random occurrences
+    dn <- list(NULL, c("iter", "grp", k.cnames))
+    null.stats.iters[[i]] <- data.frame(matrix(nrow = nk,
+                                               ncol = length(k.cnames) + 2,
+                                               dimnames = dn))
+    # make list to hold different null occurrence datasets
     occs.null <- list()
-    if(eval.type == "kfold") {
-      # if kfold evaluation, randomly sample the same number of training
-      # occs over each k partition of envs
-      for(k in 1:nk) {
-        occs.null.xy <- dismo::randomPoints(envs, occs.parts.tbl[k])
-        occs.null[[k]] <- as.data.frame(raster::extract(envs, occs.null.xy))
+
+    # randomly sample the same number of training occs over each k partition
+    # of envs; if kspatial evaluation, only sample over the current spatial
+    # partition of envs.vals
+    for(k in 1:nk) {
+      if(eval.type == "kspatial") {
+        envs.vals.k <- envs.vals[envs.grp == k,]
+      }else{
+        envs.vals.k <- envs.vals
       }
-    }else if(eval.type == "kspatial") {
-      # if kfold evaluation, randomly sample the same number of training
-      # occs over each k partition of envs
-      for(k in 1:nk) {
-        envs.k <- envs.cv
-        envs.k[envs.k != k] <- NA
-        occs.null.xy <- dismo::randomPoints(envs.k, occs.parts.tbl[k])
-        occs.null[[k]] <- as.data.frame(raster::extract(envs, occs.null.xy))
-      }
-    }else if(eval.type == "split") {
-      # if split evaluation, randomly sample the same number of training
-      # occs over the envs extent only once
-      occs.null.xy <- dismo::randomPoints(envs, occs.parts.tbl[1])
-      occs.null[[1]] <- as.data.frame(raster::extract(envs, occs.null.xy))
+      samp <- sample(1:nrow(envs.vals.k), occs.parts.tbl[k])
+      occs.null[[k]] <- envs.vals.k[samp, ]
     }
 
     # convert fields for categorical data to factor class
@@ -182,17 +182,18 @@ nullSDMs <- function(occs, envs, bg, occs.grp, bg.grp, mod.name, mod.args, no.it
       mod.k <- do.call(mod.fun, mod.args.k)
       # calculate evaluation statistics and put the results in null.stats.iters
       e <- evalStats(occs.null.train, bg.train, occs.test, mod.k, abs.auc.diff)
-      null.stats.iters[[i]][k,] <- c(i, e)
+      null.stats.iters[[i]][k,] <- c(i, k, e)
 
-      message(sprintf("Completed null model and evaluation for partition %i of iteration %i.", k, i))
+      message(sprintf("Completed partition %i for null model %i.", k, i))
     }
     # average partition statistics
     # for split partition, sd will be NA because input is single fold statistic
-    null.stats.means <- apply(null.stats.iters[[i]][,-1], 2, mean)
-    null.stats.sds <- apply(null.stats.iters[[i]][,-1], 2, sd)
+    null.stats.means <- apply(null.stats.iters[[i]][, -c(1, 2)], 2, mean)
+    null.stats.sds <- apply(null.stats.iters[[i]][, -c(1, 2)], 2, sd)
     # alternate the above values for data frame and assign to table
     null.stats[i,2:9] <- c(rbind(null.stats.means, null.stats.sds))
   }
+  message(paste0("Null models built and evaluated in ", timeCheck(t4), "."))
 
   # condense null.stats.iters into data frame
   null.stats.iters <- do.call("rbind", null.stats.iters)
@@ -214,10 +215,7 @@ nullSDMs <- function(occs, envs, bg, occs.grp, bg.grp, mod.name, mod.args, no.it
   # optionally remove temp directory for maxent.jar
   if(mod.name == "maxent.jar" & removeMxTemp == TRUE) unlink(tmpdir, recursive = T, force = T)
 
-  timed <- proc.time() - start.time
-  t.min <- floor(timed[3] / 60)
-  t.sec <- timed[3] - (t.min * 60)
-  message(paste("Null SDM analysis completed in", t.min, "minutes", round(t.sec, 1), "seconds."))
+  message(paste0("Null SDM analysis completed in ", timeCheck(t1), "."))
 
   return(out)
 }
