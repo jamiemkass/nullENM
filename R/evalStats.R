@@ -8,8 +8,8 @@ evalStats <- function(occs.train, bg.train, occs.test, mod, abs.auc.diff) {
   auc.diff <- auc.train - auc.test
   if(abs.auc.diff == TRUE) auc.diff <- abs(auc.diff)
   # get model predictions for training and testing data
-  pred.train <- predict(mod, occs.train)
-  pred.test <- predict(mod, occs.test)
+  pred.train <- dismo::predict(mod, occs.train)
+  pred.test <- dismo::predict(mod, occs.test)
   # get 10 percentile predicted value
   occs.train.n <- nrow(occs.train)
   if(occs.train.n < 10) {

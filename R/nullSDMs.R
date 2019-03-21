@@ -2,7 +2,7 @@
 #'
 
 # for split evaluation, label training occs "1" and independent evaluation occs "2" in partitions
-nullSDMs <- function(occs, envs, bg, occs.grp, bg.grp, mod.name, mod.args,
+nullSDMs <- function(occs, envs = NULL, bg, occs.grp, bg.grp, mod.name, mod.args = NULL,
                      no.iter, eval.type = c("split", "kfold", "kspatial"),
                      categoricals = NULL, envs.grp = NULL, abs.auc.diff = FALSE,
                      other.args = NULL, removeMxTemp = TRUE) {
@@ -12,7 +12,7 @@ nullSDMs <- function(occs, envs, bg, occs.grp, bg.grp, mod.name, mod.args,
   message("Beginning null SDM analysis...")
 
   # changing stack to brick to speed up analysis
-  if(class(envs) != "RasterBrick") envs <- raster::brick(envs)
+  if(!is.null(envs) & class(envs) != "RasterBrick") envs <- raster::brick(envs)
   # coerse occs and bg to data frames
   occs <- as.data.frame(occs)
   bg <- as.data.frame(bg)
@@ -30,16 +30,23 @@ nullSDMs <- function(occs, envs, bg, occs.grp, bg.grp, mod.name, mod.args,
 
   # get environmental values for occs and bg
   t2 <- proc.time()
-  message("Extracting environmental values...")
-  colnames(bg) <- colnames(occs)
-  pt.vals <- as.data.frame(raster::extract(envs, rbind(occs, bg)))
-  occs.vals <- pt.vals[seq(1, nrow(occs)), ]
-  bg.vals <- pt.vals[seq(nrow(occs)+1, nrow(pt.vals)), ]
-  envs.vals <-as.data.frame(raster::getValues(envs))
-  message(paste0("Environmental values extracted in ", timeCheck(t2), "."))
 
-  # now remove NAs from envs.vals
-  envs.vals <- na.omit(envs.vals)
+  if(ncol(occs > 2) & ncol(bg) > 2 & is.null(envs)) {
+    message("Environmental values provided for occurrence and background records. Skipping extraction...")
+    occs.vals <- occs
+    bg.vals <- bg
+    envs.vals <- bg
+  }else{
+    message("Extracting environmental values...")
+    colnames(bg) <- colnames(occs)
+    pt.vals <- as.data.frame(raster::extract(envs, rbind(occs, bg)))
+    occs.vals <- pt.vals[seq(1, nrow(occs)), ]
+    bg.vals <- pt.vals[seq(nrow(occs)+1, nrow(pt.vals)), ]
+    envs.vals <- as.data.frame(raster::getValues(envs))
+    # now remove NAs from envs.vals
+    envs.vals <- na.omit(envs.vals)
+    message(paste0("Environmental values extracted in ", timeCheck(t2), "."))
+  }
 
   # convert fields for categorical data to factor class
   if(!is.null(categoricals)) {
@@ -97,8 +104,8 @@ nullSDMs <- function(occs, envs, bg, occs.grp, bg.grp, mod.name, mod.args,
       occs.test.real.k <- occs.vals[occs.grp == k, ]
       bg.train.k <- bg.vals[bg.grp != k, ]
     }else if(eval.type == "split") {
-      occs.train.real.k <- occs.vals[occs.grp != 2,]
-      occs.test.real.k <- occs.vals[occs.grp != 1,]
+      occs.train.real.k <- occs.vals[occs.grp == 1,]
+      occs.test.real.k <- occs.vals[occs.grp == 2,]
       bg.train.k <- bg.vals
     }
     mod.args.real.k <- model.args(mod.name, mod.args, occs.train.real.k, bg.train.k, other.args)
@@ -204,6 +211,7 @@ nullSDMs <- function(occs, envs, bg, occs.grp, bg.grp, mod.name, mod.args,
   all.stats["pvalue", 1:2] <- 1 - sapply(all.stats["zscore", 1:2], pnorm)
   all.stats["pvalue", 3:5] <- sapply(all.stats["zscore", 3:5], pnorm)
 
+  if(is.null(model.args)) model.args <- list()
   # condense mod.args to named matrix for inserting into class slot
   out <- nullSDMResults(model = mod.name, model.args = mod.args,
                         eval.type = eval.type, occs = occs,
