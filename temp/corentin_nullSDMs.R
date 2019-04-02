@@ -5,7 +5,7 @@ library(rJava) # required to run Maxent within dismo
 options(java.parameters = "-Xmx2g" )
 library(dismo) # should also load automatically the required packages sp and raster
 ## 1) The main null model function:
-mxt.nulltest(train, bg, n = 9, proj=bg, c.proj=TRUE, args = "addsamplestobackground", threshold = .1, abs.diff=TRUE, test=NULL, group=NULL, bg.group=NULL,save=NULL)
+# mxt.nulltest(train, bg, n = 9, proj=bg, c.proj=TRUE, args = "addsamplestobackground", threshold = .1, abs.diff=TRUE, test=NULL, group=NULL, bg.group=NULL,save=NULL)
 ## The inputs for this function are:
 ## - train : a dataframe of the environmental values for the species calibration presences: one row for each presence, one column for each predictor. Note that categorical variable must be indicated with as.factor() .
 ## - n : the number of null replicates.
@@ -146,42 +146,42 @@ mxt.nulltest = function(train, bg, n = 9, proj=bg, c.proj=TRUE, args = "addsampl
   res@summary = data.frame(real)
   res@random.reps = null
   return(res)}
-## 2) The script to automate in parallel the optimization procedure:
-# Create a list of maxent arguments corresponding to those settings 42 different settings:
-a="addsamplestobackground"
-b="noautofeature"
-h="nohinge"
-t="nothreshold"
-p="noproduct"
-LQ=lapply(seq(.5,3,.5), function(x) {c(a,b,p,t,h,paste("betamultiplier",x,sep="="))})
-LQP=lapply(seq(.5,3,.5), function(x) {c(a,b,t,h,paste("betamultiplier",x,sep="="))})
-LQT=lapply(seq(.5,3,.5), function(x) {c(a,b,p,h,paste("betamultiplier",x,sep="="))})
-LQH=lapply(seq(.5,3,.5), function(x) {c(a,b,p,t,paste("betamultiplier",x,sep="="))})
-LQPT=lapply(seq(.5,3,.5), function(x) {c(a,b,h,paste("betamultiplier",x,sep="="))})
-LQPH=lapply(seq(.5,3,.5), function(x) {c(a,b,t,paste("betamultiplier",x,sep="="))})
-LQTH=lapply(seq(.5,3,.5), function(x) {c(a,b,t,h,paste("betamultiplier",x,sep="="))})
-LQPTH=lapply(seq(.5,3,.5), function(x) {c(a,b,paste("betamultiplier",x,sep="="))})
-args=c(LQ,LQP,LQT,LQH,LQPT,LQPH,LQTH,LQPTH)
-# Create a list of the files where the results for each combination of settings will be saved (replace “your_path/your_file” by the desired path and file name):
-LQs=lapply(seq(.5,3,.5),function(x) {paste("your_path/your_file_LQ",x,".csv",sep="")})
-LQPs=lapply(seq(.5,3,.5),function(x) {paste("your_path/your_file_LQP",x,".csv",sep="")})
-LQTs=lapply(seq(.5,3,.5),function(x) {paste("your_path/your_file_LQT",x,".csv",sep="")})
-LQHs=lapply(seq(.5,3,.5),function(x) {paste("your_path/your_file_LQH",x,".csv",sep="")})
-LQPTs=lapply(seq(.5,3,.5),function(x) {paste("your_path/your_file_LQPT",x,".csv",sep="")})
-LQPHs=lapply(seq(.5,3,.5),function(x) {paste("your_path/your_file_LQPH",x,".csv",sep="")})
-LQTHs=lapply(seq(.5,3,.5),function(x) {paste("your_path/your_file_LQTH",x,".csv",sep="")})
-LQPTHs=lapply(seq(.5,3,.5),function(x) {paste("your_path/your_file_LQPTH",x,".csv",sep="")})
-save=c(LQs,LQPs,LQTs,LQHs,LQPTs,LQPHs,LQTHs,LQPTHs)
-# Load the following libraries required for parallel execution:
-library(foreach)
-library(doSNOW)
-# Make a cluster corresponding to how many parallel versions of R should be run (avoid using every single core in your computer):
-cl <- makeCluster(6, "SOCK")
-registerDoSNOW(cl)
-# Run the foreach loop in parallel:
-maxent.runs <- foreach(i = 1:length(args), .packages = c("dismo", "rJava","ROCR")) %dopar% {
-  mxt.nulltest(train, bg, n = 1000, proj=bg, c.proj=TRUE, args = args[[i]], group=group, bg.group=bg.group,save=save[[i]])}
-stopCluster(cl)
-# The results should have been saved to the specified files but they can also be viewed in R, or as a summary with the following lines of code:
-summary=lapply(maxent.runs, function(x) x@summary)
-names(summary)=save
+# ## 2) The script to automate in parallel the optimization procedure:
+# # Create a list of maxent arguments corresponding to those settings 42 different settings:
+# a="addsamplestobackground"
+# b="noautofeature"
+# h="nohinge"
+# t="nothreshold"
+# p="noproduct"
+# LQ=lapply(seq(.5,3,.5), function(x) {c(a,b,p,t,h,paste("betamultiplier",x,sep="="))})
+# LQP=lapply(seq(.5,3,.5), function(x) {c(a,b,t,h,paste("betamultiplier",x,sep="="))})
+# LQT=lapply(seq(.5,3,.5), function(x) {c(a,b,p,h,paste("betamultiplier",x,sep="="))})
+# LQH=lapply(seq(.5,3,.5), function(x) {c(a,b,p,t,paste("betamultiplier",x,sep="="))})
+# LQPT=lapply(seq(.5,3,.5), function(x) {c(a,b,h,paste("betamultiplier",x,sep="="))})
+# LQPH=lapply(seq(.5,3,.5), function(x) {c(a,b,t,paste("betamultiplier",x,sep="="))})
+# LQTH=lapply(seq(.5,3,.5), function(x) {c(a,b,t,h,paste("betamultiplier",x,sep="="))})
+# LQPTH=lapply(seq(.5,3,.5), function(x) {c(a,b,paste("betamultiplier",x,sep="="))})
+# args=c(LQ,LQP,LQT,LQH,LQPT,LQPH,LQTH,LQPTH)
+# # Create a list of the files where the results for each combination of settings will be saved (replace “your_path/your_file” by the desired path and file name):
+# LQs=lapply(seq(.5,3,.5),function(x) {paste("your_path/your_file_LQ",x,".csv",sep="")})
+# LQPs=lapply(seq(.5,3,.5),function(x) {paste("your_path/your_file_LQP",x,".csv",sep="")})
+# LQTs=lapply(seq(.5,3,.5),function(x) {paste("your_path/your_file_LQT",x,".csv",sep="")})
+# LQHs=lapply(seq(.5,3,.5),function(x) {paste("your_path/your_file_LQH",x,".csv",sep="")})
+# LQPTs=lapply(seq(.5,3,.5),function(x) {paste("your_path/your_file_LQPT",x,".csv",sep="")})
+# LQPHs=lapply(seq(.5,3,.5),function(x) {paste("your_path/your_file_LQPH",x,".csv",sep="")})
+# LQTHs=lapply(seq(.5,3,.5),function(x) {paste("your_path/your_file_LQTH",x,".csv",sep="")})
+# LQPTHs=lapply(seq(.5,3,.5),function(x) {paste("your_path/your_file_LQPTH",x,".csv",sep="")})
+# save=c(LQs,LQPs,LQTs,LQHs,LQPTs,LQPHs,LQTHs,LQPTHs)
+# # Load the following libraries required for parallel execution:
+# library(foreach)
+# library(doSNOW)
+# # Make a cluster corresponding to how many parallel versions of R should be run (avoid using every single core in your computer):
+# cl <- makeCluster(6, "SOCK")
+# registerDoSNOW(cl)
+# # Run the foreach loop in parallel:
+# maxent.runs <- foreach(i = 1:length(args), .packages = c("dismo", "rJava","ROCR")) %dopar% {
+#   mxt.nulltest(train, bg, n = 1000, proj=bg, c.proj=TRUE, args = args[[i]], group=group, bg.group=bg.group,save=save[[i]])}
+# stopCluster(cl)
+# # The results should have been saved to the specified files but they can also be viewed in R, or as a summary with the following lines of code:
+# summary=lapply(maxent.runs, function(x) x@summary)
+# names(summary)=save

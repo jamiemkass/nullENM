@@ -9,7 +9,7 @@ model.args <- function(mod.name, mod.args, occs.vals, bg.vals, other.args) {
   if(mod.name == "maxent.jar") {
     out$x <- d
     out$p <- p
-    out$args <- c("noaddsamplestobackground", "noremoveDuplicates")
+    out$args <- c("noaddsamplestobackground")
     if(!is.null(mod.args)) {
       out$args <- c(out$args, "noautofeature")
       if(!grepl("L", mod.args$fc)) out$args <- c(out$args, "nolinear")

@@ -2,8 +2,9 @@
 #'
 
 # for split evaluation, label training occs "1" and independent evaluation occs "2" in partitions
-nullSDMs <- function(occs, envs = NULL, bg, occs.grp, bg.grp, mod.name, mod.args = NULL,
-                     no.iter, eval.type = c("split", "kfold", "kspatial"),
+nullSDMs <- function(occs, envs = NULL, bg, occs.grp = NULL, bg.grp = NULL, occs.indTest = NULL,
+                     mod.name, mod.args = NULL, no.iter,
+                     eval.type = c("split", "kfold", "kspatial"),
                      categoricals = NULL, envs.grp = NULL, abs.auc.diff = FALSE,
                      other.args = NULL, removeMxTemp = TRUE) {
 
@@ -20,6 +21,8 @@ nullSDMs <- function(occs, envs = NULL, bg, occs.grp, bg.grp, mod.name, mod.args
   # if split evaluation, partition number equals 1
   if(eval.type == "split") {
     nk <- 1
+    occs.grp <- rep(0, nrow(occs))
+    bg.grp <- rep(0, nrow(bg))
   }else{
     # get total number of partitions (k)
     nk <- length(unique(occs.grp))
@@ -36,12 +39,21 @@ nullSDMs <- function(occs, envs = NULL, bg, occs.grp, bg.grp, mod.name, mod.args
     occs.vals <- occs
     bg.vals <- bg
     envs.vals <- bg
+    if(!is.null(occs.indTest)) {
+      if(ncol(occs.indTest) < 3) stop("Please insert fields for environmental values of occurrence test points.")
+      occs.test.vals <- occs.indTest
+    }
   }else{
     message("Extracting environmental values...")
     colnames(bg) <- colnames(occs)
-    pt.vals <- as.data.frame(raster::extract(envs, rbind(occs, bg)))
+    if(!is.null(occs.indTest)) {
+      pt.vals <- as.data.frame(raster::extract(envs, rbind(occs, bg, occs.indTest)))
+      occs.test.vals <- pt.vals[seq(nrow(occs) + nrow(bg) + 1, nrow(pt.vals)), ]
+    }else{
+      pt.vals <- as.data.frame(raster::extract(envs, rbind(occs, bg)))
+    }
     occs.vals <- pt.vals[seq(1, nrow(occs)), ]
-    bg.vals <- pt.vals[seq(nrow(occs)+1, nrow(pt.vals)), ]
+    bg.vals <- pt.vals[seq(nrow(occs)+1, nrow(occs) + nrow(bg)), ]
     envs.vals <- as.data.frame(raster::getValues(envs))
     # now remove NAs from envs.vals
     envs.vals <- na.omit(envs.vals)
@@ -104,8 +116,8 @@ nullSDMs <- function(occs, envs = NULL, bg, occs.grp, bg.grp, mod.name, mod.args
       occs.test.real.k <- occs.vals[occs.grp == k, ]
       bg.train.k <- bg.vals[bg.grp != k, ]
     }else if(eval.type == "split") {
-      occs.train.real.k <- occs.vals[occs.grp == 1,]
-      occs.test.real.k <- occs.vals[occs.grp == 2,]
+      occs.train.real.k <- occs.vals
+      occs.test.real.k <- occs.test.vals
       bg.train.k <- bg.vals
     }
     mod.args.real.k <- model.args(mod.name, mod.args, occs.train.real.k, bg.train.k, other.args)
@@ -180,7 +192,7 @@ nullSDMs <- function(occs, envs = NULL, bg, occs.grp, bg.grp, mod.name, mod.args
         # independent testing dataset
         occs.null.train <- occs.null[[1]]
         bg.train <- bg.vals
-        occs.test <- occs.vals[occs.grp != 1,]
+        occs.test <- occs.test.vals
       }
 
       # build custom mod.args for this iteration
