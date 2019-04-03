@@ -34,7 +34,7 @@ names(trains) <- c("ARESNYFLs", "AR", "ES", "NY", "FLs")
 test <- read.csv('data/MOPAmnout_global_test.csv')
 test <- unique(test[,4:27])
 
-source("/Users/musasabi/Documents/github/nullSDM/temp/corentin_nullSDMs.R")
+source("/Users/musasabi/Documents/github/nullSDM/temp/corentin_nullENMs.R")
 
 #run models
 library(rJava) # required to run Maxent within dismo
@@ -58,6 +58,7 @@ for(i in 1:length(trains)) {
   c.L4[[names(trains)[i]]] <- x
 }
 saveRDS(c.L4, "results/c.L4.rds")
+c.L4 <- readRDS("results/c.L4.rds")
 
 # most complex settings
 args=c("noaddsamplestobackground","noautofeature","betamultiplier=0.25")
@@ -67,6 +68,7 @@ for(i in 1:length(trains)) {
   c.LQPTH025[[names(trains)[i]]] <- x
 }
 saveRDS(c.LQPTH025, "results/c.LQPTH025.rds")
+c.LQPTH025 <- readRDS("results/c.LQPTH025.rds")
 
 ########################################## #
 # run nullENM code ####
@@ -77,7 +79,7 @@ n.default <- list()
 for(i in 1:length(trains)) {
   occs <- trains[[i]]
   bg <- bgs[[i]]
-  x <- nullSDMs(occs = occs, bg = bg, occs.indTest = test,
+  x <- nullENMs(occs = occs, bg = bg, occs.indTest = test,
                 mod.name = "maxent.jar", mod.args = list(fc = "LQHPT", rm = 1),
                 no.iter = 100, eval.type = "split")
   n.default[[names(trains)[i]]] <- x
@@ -87,10 +89,9 @@ saveRDS(n.default, "results/n.default.rds")
 # simplest settings
 n.L4 <- list()
 for(i in 1:length(trains)) {
-  occs <- rbind(trains[[i]], test)
-  occs.grp <- c(rep(1, nrow(trains[[i]])), rep(2, nrow(test)))
-  bg.grp <- rep(0, nrow(bgs[[i]]))
-  x <- nullSDMs(occs = occs, bg = bgs[[i]], occs.grp = occs.grp, bg.grp = bg.grp,
+  occs <- trains[[i]]
+  bg <- bgs[[i]]
+  x <- nullENMs(occs = occs, bg = bg, occs.indTest = test,
                 mod.name = "maxent.jar", mod.args = list(fc = "L", rm = 4),
                 no.iter = 100, eval.type = "split")
   n.L4[[names(trains)[i]]] <- x
@@ -100,13 +101,25 @@ saveRDS(n.L4, "results/n.L4.rds")
 # most complex settings
 n.LQPTH025 <- list()
 for(i in 1:length(trains)) {
-  occs <- rbind(trains[[i]], test)
-  occs.grp <- c(rep(1, nrow(trains[[i]])), rep(2, nrow(test)))
-  bg.grp <- rep(0, nrow(bgs[[i]]))
-  x <- nullSDMs(occs = occs, bg = bgs[[i]], occs.grp = occs.grp, bg.grp = bg.grp,
+  occs <- trains[[i]]
+  bg <- bgs[[i]]
+  x <- nullENMs(occs = occs, bg = bg, occs.indTest = test,
                 mod.name = "maxent.jar", mod.args = list(fc = "LQHPT", rm = 0.25),
                 no.iter = 100, eval.type = "split")
   n.LQPTH025[[names(trains)[i]]] <- x
 }
 saveRDS(n.LQPTH025, "results/n.LQPTH025.rds")
+
+
+########################################## #
+# run nullENM code ####
+########################################## #
+c.default$ARESNYFLs@summary
+n.default$ARESNYFLs@all.stats
+
+c.L4$ARESNYFLs@summary
+n.L4$ARESNYFLs@all.stats
+
+c.LQPTH025$ARESNYFLs@summary
+n.LQPTH025$ARESNYFLs@all.stats
 

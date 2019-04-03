@@ -2,10 +2,10 @@
 #'
 
 # for split evaluation, label training occs "1" and independent evaluation occs "2" in partitions
-nullSDMs <- function(occs, envs = NULL, bg, occs.grp = NULL, bg.grp = NULL, occs.indTest = NULL,
+nullENMs <- function(occs, envs = NULL, bg, occs.grp = NULL, bg.grp = NULL, occs.indTest = NULL,
                      mod.name, mod.args = NULL, no.iter,
                      eval.type = c("split", "kfold", "kspatial"),
-                     categoricals = NULL, envs.grp = NULL, abs.auc.diff = FALSE,
+                     categoricals = NULL, envs.grp = NULL, abs.auc.diff = TRUE,
                      other.args = NULL, removeMxTemp = TRUE) {
 
   # record start time
