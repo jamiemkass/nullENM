@@ -2,6 +2,6 @@
 
 export(evalStats)
 export(model.args)
-export(nullSDMs)
+export(nullENMs)
 exportClasses(nullSDMResults)
 exportMethods(show)

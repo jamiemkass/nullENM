@@ -110,22 +110,21 @@ nullENMs <- function(occs, envs = NULL, bg, occs.grp = NULL, bg.grp = NULL, occs
   kstats <- data.frame(matrix(nrow = nk, ncol = length(k.cnames),
                               dimnames = list(NULL, k.cnames)))
 
-  for(k in 1:nk) {
-    if(eval.type == "kfold" | eval.type == "kspatial") {
+  if(eval.type == "split") {
+    kstats[1,] <- evalStats(occs.vals, bg.vals, occs.test.vals, mod.real, abs.auc.diff)
+  }else{
+    for(k in 1:nk) {
       occs.train.real.k <- occs.vals[occs.grp != k, ]
       occs.test.real.k <- occs.vals[occs.grp == k, ]
       bg.train.k <- bg.vals[bg.grp != k, ]
-    }else if(eval.type == "split") {
-      occs.train.real.k <- occs.vals
-      occs.test.real.k <- occs.test.vals
-      bg.train.k <- bg.vals
+      mod.args.real.k <- model.args(mod.name, mod.args, occs.train.real.k, bg.train.k, other.args)
+      mod.real.k <- do.call(mod.fun, mod.args.real.k)
+      kstats[k,] <- evalStats(occs.train.real.k, bg.train.k, occs.test.real.k,
+                              mod.real.k, abs.auc.diff)
+      message(sprintf("Completed real model evaluation for partition %i.", k))
     }
-    mod.args.real.k <- model.args(mod.name, mod.args, occs.train.real.k, bg.train.k, other.args)
-    mod.real.k <- do.call(mod.fun, mod.args.real.k)
-    kstats[k,] <- evalStats(occs.train.real.k, bg.train.k, occs.test.real.k,
-                            mod.real.k, abs.auc.diff)
-    message(sprintf("Completed real model partition %i.", k))
   }
+
   message(paste0("Real model built and evaluated in ", timeCheck(t3), "."))
 
   # fill in rest of real model statistics
