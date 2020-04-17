@@ -10,6 +10,7 @@ p.block <- ENMeval::get.block(occs, bg)
 envs.xy <- raster::rasterToPoints(envs[[1]], spatial = TRUE)
 p.block$envs.grp <- ENMeval::get.block(occs, envs.xy@coords)$bg.grp
 p.rand <- ENMeval::get.randomkfold(occs, bg, 3)
-x1 <- nullENMs(occs, envs, bg, p.rand$occ.grp, p.rand$bg.grp, "maxnet", mod.args, 5, "kfold", "biome")
+x1 <- nullENMs(occs, envs, bg, p.rand$occ.grp, p.rand$bg.grp, mod.name = "maxnet",
+               mod.args = mod.args, no.iter = 5, eval.type = "kfold", categoricals = "biome")
 # x2 <- nullENMs(occs, envs, bg, p.block$occ.grp, p.block$bg.grp, envs.grp = p.block$envs.grp, "maxnet", mod.args, 5, "kspatial", "biome")
 # x3 <- nullENMs(occs[1:200,], envs, bg, occs.indTest = occs[201:nrow(occs),], mod.name = "maxnet", mod.args = mod.args, no.iter = 5, eval.type = "split", categoricals = "biome")
